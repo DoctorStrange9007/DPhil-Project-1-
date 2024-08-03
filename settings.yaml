@@ -1,0 +1,14 @@
+input_dir: 'input'
+output_dir: 'output'
+input_fn: 'Input_file.xlsx'
+models: [
+          [Model1, M1, {alpha: '00.1', beta '0.2'}],
+          [Model2, M2, {c: '5'}]
+]
+diagnostics: [
+          [top_level, t1, {diagnostic_start_date: '2011-01-01', diagnostic_end_date: '2020-01-01'}],
+          [lower_level, l2, {diagnostic_start_date: '2011-01-01', diagnostic_end_date: '2020-01-01'}]
+]
+remove_one_offs: True 
+perform_data_analysis: False 
+perform_plots: False 
