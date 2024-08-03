@@ -1,4 +1,4 @@
-# DPhill Dissertation 
+# DPhil Dissertation 
 
 Mac:
 ## Environment 
