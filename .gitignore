@@ -2,3 +2,4 @@
 output
 /env*
 input/*.csvs
+__pycache__
