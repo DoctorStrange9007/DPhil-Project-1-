@@ -22,6 +22,6 @@ Mac:
 * The folder tests/ contains some standalone analyses 
 
 ## Code Formatting and Standards
-* A bash script doing the formatting is available, pre_commit.sh, put it in your pre-commit hook 
-    * Put '#!bin/sh' (ENTER) 'scripts/pre_commit.sh' in .git\hooks\pre-commit.sample
+* A bash script doing the formatting is available, scripts/pre_commit.sh, put it in your pre-commit hook: 
+    * Put '#!/bin/sh' (ENTER) 'source scripts/pre_commit.sh' in .git/hooks/pre-commit.sample
     * Rename pre-commit.sample to pre-commit: mv .git/hooks/pre-commit.sample .git/hooks/pre-commit
