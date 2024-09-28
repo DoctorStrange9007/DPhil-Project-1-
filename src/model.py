@@ -1,9 +1,13 @@
+import numpy as np
+
+
 class Model:
     """Base class of models"""
 
     def __init__(self, data_obj, name):
-        self._data_obj = data_obj 
-        self._name = name 
+        self._data_obj = data_obj
+        self._name = name
+
 
 class Model1(Model):
     """Model 1"""
@@ -14,6 +18,5 @@ class Model1(Model):
 
     def calculate(self, confidence):
         time_series = self._data_obj.yearly_ts()
-         
-        pass 
-    
+        a = np.sqrt(5)
+
