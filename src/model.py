@@ -19,4 +19,4 @@ class Model1(Model):
     def calculate(self, confidence):
         time_series = self._data_obj.yearly_ts()
         a = np.sqrt(5)
-
+        b = np.zeros(5)
