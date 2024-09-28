@@ -6,7 +6,7 @@ Mac:
 * Activate the environment in the terminal: source env/bin/activate 
 * Install the requirements: pip3 install -r requirements.txt 
 
-## Inpust 
+## Input 
 * Input data file should be located in input/ 
 * settings.yaml contains run settings 
 
@@ -20,3 +20,8 @@ Mac:
 ## Usage 
 * Run the following command from the folder root: python3 main.py 
 * The folder tests/ contains some standalone analyses 
+
+## Code Formatting and Standards
+* A bash script doing the formatting is available, pre_commit.sh, put it in your pre-commit hook 
+    * Put '#!bin/sh' (ENTER) 'scripts/pre_commit.sh' in .git\hooks\pre-commit.sample
+    * Rename pre-commit.sample to pre-commit: mv .git/hooks/pre-commit.sample .git/hooks/pre-commit
