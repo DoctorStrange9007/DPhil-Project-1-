@@ -1,4 +1,4 @@
-input_dir: 'input'
+input_dir: 'input/data/yearly/2021' #change to when we want to import all data 
 output_dir: 'output'
 input_fn: 'Input_file.xlsx'
 models: [

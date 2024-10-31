@@ -1,5 +1,5 @@
 **/.DS_Store
 output
 /env*
-input/*.csvs
+input/data*
 __pycache__
