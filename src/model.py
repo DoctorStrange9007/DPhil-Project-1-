@@ -25,9 +25,15 @@ class VAM(Model):
             :, pd.to_datetime(all_data.columns) >= pd.to_datetime("20210601")
         ]
 
-        model = VAR(train.transpose())
+        adj_train = train.transpose().iloc[:, :10]  # for now due to computational time
+        model = VAR(adj_train)
         results = model.fit(1)
-        a = 5
+        lag_order = results.k_ar
+        forecast_input = adj_train.values[-lag_order:]
+        forecast = results.forecast(forecast_input, steps=test.shape[1])
+        sgn_forecast = np.sign(forecast)
+
+        return sgn_forecast
 
 
 class SAM(Model):

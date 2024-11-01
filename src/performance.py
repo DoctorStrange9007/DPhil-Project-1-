@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 
 
 class Performance:
@@ -14,16 +15,18 @@ class PnL(Performance):
 
     def __init(self, data_obj, pred_obj):
         super().__init__(data_obj, pred_obj)
-        self._pnl = self.calculate()
 
     def calculate(self):
-        frets = self._data_obj.data
+        all_data = self._data_obj.data
+        test = all_data.iloc[
+            :, pd.to_datetime(all_data.columns) >= pd.to_datetime("20210601")
+        ]
 
-        sign_preds = np.sign(self._pred_obj)
+        res = self._pred_obj * test.transpose().iloc[:, :10].values
+        pnl_per_asset = np.cumsum(res, axis=0)
+        pnl_across_assets = pnl_per_asset.sum(axis=1)
 
-        pnl = sign_preds * frets
-
-        return pnl
+        return pnl_across_assets, pd.to_datetime(test.columns)
 
 
 class SR(PnL):
