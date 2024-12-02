@@ -26,7 +26,8 @@ class ReadData:
 
         Retrieving steps:
             all data in yearly folders and seperate daily csv.gz files
-            need to loop over folders and over seperate daily csv.gz files
+            need to loop over folders
+            calls read_raw_year function which loops over seperate daily csv.gz files
             calculates return values r_t=log(p_{t}/p_{t-1})
 
         Args:
@@ -35,12 +36,39 @@ class ReadData:
         Returns:
             raw_data: pd.DataFrame with all the days concatenated and calculated return values
         """
+        years = self._run_sett["years"]
+        raw_data = self.read_raw_year(years[0])
+
+        for year in years[1:]:
+            raw_data_temp = self.read_raw_year(year)
+            raw_data = pd.concat([raw_data, raw_data_temp], axis=1, join="inner")
+
+        return raw_data
+
+    def read_raw_year(self, year):
+        """Retrieves the raw return data.
+
+        Retrieving steps:
+            need to loop over folders and over seperate daily csv.gz files
+            calculates return values r_t=log(p_{t}/p_{t-1})
+
+        Args:
+            self
+            year: int of year
+
+        Returns:
+            raw_data: pd.DataFrame with all the yearly days concatenated and calculated return values
+        """
         sorted_strings = sorted(
-            list_visible_files_with_list_comprehension(self._run_sett["input_dir"]),
+            list_visible_files_with_list_comprehension(
+                self._run_sett["input_dir"] + str(year)
+            ),
             key=lambda x: int(x[:8]),
         )
-        input_path_init = os.path.join(self._run_sett["input_dir"], sorted_strings[0])
-        raw_data = (
+        input_path_init = os.path.join(
+            self._run_sett["input_dir"] + str(year), sorted_strings[0]
+        )
+        raw_data_year = (
             pd.read_csv(input_path_init, index_col="ticker", compression="gzip")
             .loc[:, "close"]
             .rename(sorted_strings[0][:8])
@@ -48,21 +76,23 @@ class ReadData:
         )
 
         for day_file in sorted_strings[1:]:
-            input_path = os.path.join(self._run_sett["input_dir"], day_file)
-            raw_data_temp = (
+            input_path = os.path.join(self._run_sett["input_dir"] + str(year), day_file)
+            raw_data_year_temp = (
                 pd.read_csv(input_path, index_col="ticker", compression="gzip")
                 .loc[:, "close"]
                 .rename(day_file[:8])
             )
-            raw_data = pd.concat([raw_data, raw_data_temp], axis=1, join="inner")
+            raw_data_year = pd.concat(
+                [raw_data_year, raw_data_year_temp], axis=1, join="inner"
+            )
 
-        raw_data = (
-            np.log(raw_data.transpose() / raw_data.transpose().shift(1))
+        raw_data_year = (
+            np.log(raw_data_year.transpose() / raw_data_year.transpose().shift(1))
             .iloc[1:,]
             .transpose()
         )
 
-        return raw_data
+        return raw_data_year
 
     def parse_data(self, data: pd.DataFrame) -> pd.DataFrame:
         """Applies some global cleaning of the data.
