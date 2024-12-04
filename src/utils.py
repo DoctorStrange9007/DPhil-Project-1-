@@ -19,7 +19,7 @@ def plot_pnl_with_sharpe(pnl_obj):
     model_name = pnl_obj.pred_obj.model_sett["name"]
     model_lag = pnl_obj.pred_obj.model_lag
 
-    df = pd.DataFrame({"Date": pnl_dates, "PnL_VAM": pnl_values_across_assets})
+    df = pd.DataFrame({"Date": pnl_dates, "PnL_UAM": pnl_values_across_assets})
     df["Date"] = pd.to_datetime(df["Date"])
     for asset, asset_pnl in zip(asset_names, pnl_values_per_asset.transpose()):
         df["PnL_" + asset] = asset_pnl

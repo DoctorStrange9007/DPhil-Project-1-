@@ -1,8 +1,8 @@
-input_dir: 'input/data/yearly/' #change to when we want to import all data 
+input_dir: 'input/data/yearly/' 
 output_dir: 'output'
 input_fn: 'Input_file.xlsx'
 years: [2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021]
-models: {VAM: {"name": "VAR(p)", "p": 1, "delta": 0.00005},
+models: {UAM: {"name": "VAR(p)", "p": 1, "delta": 0.00005, "L": 252, "S": 21},
           CAM: {"c": 5}}
 diagnostics: [
           [top_level, t1, {diagnostic_start_date: '2011-01-01', diagnostic_end_date: '2020-01-01'}],
