@@ -25,10 +25,13 @@ class VAM(Model):
         all_data = self.data_obj.data
         train = all_data.iloc[
             :, pd.to_datetime(all_data.columns) < pd.to_datetime(self.cutoff)
-        ]
+        ]  # Par
         test = all_data.iloc[
             :, pd.to_datetime(all_data.columns) >= pd.to_datetime(self.cutoff)
-        ]
+        ]  # Paralelise the training and testing phase and look lookbackwindow and refit
+        # Start by using a Lookback window = 252
+        # S = 21 (refit every month)
+        # use new data to predict each new day
 
         adj_train = train.transpose().iloc[:, :10]  # for now due to computational time
         model = VAR(adj_train)
