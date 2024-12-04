@@ -20,9 +20,9 @@ class UAM(Model):
         self.cutoff = "20210104"
         self.model_sett = self._run_sett["models"]["UAM"]
         self.model_lag = self.model_sett["p"]
-        self.sgn_forecasts = self.calculate(delta=self.model_sett["delta"])
+        self.sgn_forecasts = self.calculate()
 
-    def calculate(self, delta):
+    def calculate(self):
         all_data = self.data_obj.data
 
         sgn_forecasts = self.rolling_training_testing(
@@ -55,12 +55,10 @@ class UAM(Model):
         ]
 
         pool = mp.Pool(mp.cpu_count())
-        results = [
-            pool.apply(self.train, args=(data_set)) for data_set in train_data_sets
-        ]
+        results = pool.map(self.train, [data_set for data_set in train_data_sets])
         sgn_forecasts = [
-            pool.apply(self.train, args=(result, data_set))
-            for data_set, result in zip(test_data_sets, results)
+            pool.apply(test, args=(test_data_set, result))
+            for test_data_set, result in zip(test_data_sets, results)
         ]
         pool.close()
 
@@ -78,27 +76,21 @@ class UAM(Model):
 
         return result
 
-    def test(self, result, data):
-        """General testing function, used within parallelisation.
 
-        Attributes:
-            result (VAR.fit): Result from VAR fitting model
-            data (np.array): Array with the training data.
-        """
-        lag_order = result.k_ar
-        all_forecasts = []
-        for step in range(data.shape[1]):
-            adj_test = data.transpose().iloc[
-                :, :10
-            ]  # for now due to computational time
-            forecast = result.forecast(adj_test.values[step : step + 1], steps=1)
-            sgn_forecast = np.where(
-                forecast > 0.00005, 1, -1
-            )  # can change delta (e.g. betsize)
-            all_forecasts.append(*sgn_forecast)
+def test(data, result):
+    """General testing function, used within parallelisation.
 
-        return np.array(all_forecasts)
+    Attributes:
+        result (VAR.fit): Result from VAR fitting model
+        data (np.array): Array with the training data.
+    """
+    all_forecasts = []
+    for step in range(data.shape[1]):
+        adj_test = data.transpose().iloc[:, :10]  # for now due to computational time
+        forecast = result.forecast(adj_test.values[step : step + 1], steps=1)
+        sgn_forecast = np.where(
+            forecast > 0.00005, 1, -1
+        )  # can change delta (e.g. betsize)
+        all_forecasts.append(*sgn_forecast)
 
-        forecast_input = adj_train.values[-lag_order:]
-        forecasts = results.forecast(forecast_input, steps=test.shape[1])
-        sgn_forecasts = np.where(forecasts > delta, 1, -1)
+    return np.array(all_forecasts)
