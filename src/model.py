@@ -20,16 +20,16 @@ class UAM(Model):
         self.cutoff = "20210104"
         self.model_sett = self._run_sett["models"]["UAM"]
         self.model_lag = self.model_sett["p"]
-        self.sgn_forecasts = self.calculate()
+        self.sgn_forecasts, self.forecasted_dates = self.calculate()
 
     def calculate(self):
         all_data = self.data_obj.data
 
-        sgn_forecasts = self.rolling_training_testing(
+        sgn_forecasts, forcasted_date_sets = self.rolling_training_testing(
             self.model_sett["L"], self.model_sett["S"], all_data
         )
 
-        return sgn_forecasts
+        return sgn_forecasts, forcasted_date_sets
 
     def rolling_training_testing(self, L, S, all_data):
         """Overarching training function, calls the parralisation function.
@@ -50,6 +50,7 @@ class UAM(Model):
         ]
 
         test_date_sets = [dates[i : i + S] for i in range(L - 1, len(dates), S)]
+        forecasted_dates = dates[L:]
         test_data_sets = [
             all_data.loc[:, dates.isin(date_set)] for date_set in test_date_sets
         ]
@@ -62,7 +63,7 @@ class UAM(Model):
         ]
         pool.close()
 
-        return sgn_forecasts
+        return sgn_forecasts, forecasted_dates
 
     def train(self, data):
         """General training function, used within parallelisation.
