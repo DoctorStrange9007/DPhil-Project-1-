@@ -88,7 +88,9 @@ def test(data, result):
     all_forecasts = []
     for step in range(data.shape[1]):
         adj_test = data.transpose().iloc[:, :10]  # for now due to computational time
-        forecast = result.forecast(adj_test.values[step : step + 1], steps=1)
+        forecast = result.forecast(
+            adj_test.values[step : step + 1], steps=1
+        )  # step + 1 := step + p
         sgn_forecast = np.where(
             forecast > 0.00005, 1, -1
         )  # can change delta (e.g. betsize)
