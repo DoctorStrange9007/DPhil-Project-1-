@@ -4,15 +4,30 @@ import numpy as np
 
 
 class ReadData:
-    """This class loads and preprocesses the data.
+    """Class for loading and preprocessing financial time series data.
 
-    First the data is loaded from Excel and converted to CSV. This is done only once. Next some global preprocessing of
-    the input dataframe is applied. Features of the data, such as time_series, are calculated on request and saved in a
-    library.
+    Parameters
+    ----------
+    run_sett : dict
+        Dictionary containing runtime settings including:
+        - years : list[int]
+            Years of data to process
+        - input_dir : str
+            Directory path containing the input data files
 
-    Attributes:
-        data (pd.DataFrame): parsed input dataset
-        data_library (dict): contains many different data structures, such as time series
+    Attributes
+    ----------
+    data : pd.DataFrame
+        Processed and cleaned dataset
+    _raw_data : pd.DataFrame
+        Raw dataset before cleaning
+
+    Notes
+    -----
+    The data loading process follows these steps:
+    1. Loads data from compressed CSV files organized by year
+    2. Calculates log returns from price data
+    3. Applies data cleaning to remove invalid entries
     """
 
     def __init__(self, run_sett: dict):
@@ -22,19 +37,22 @@ class ReadData:
         self.data = self.parse_data(data=self._raw_data)
 
     def read_raw(self):
-        """Retrieves the raw return data.
+        """Load and combine raw financial data across multiple years.
 
-        Retrieving steps:
-            all data in yearly folders and seperate daily csv.gz files
-            need to loop over folders
-            calls read_raw_year function which loops over seperate daily csv.gz files
-            calculates return values r_t=log(p_{t}/p_{t-1})
+        Returns
+        -------
+        pd.DataFrame
+            Combined DataFrame containing log returns for all years
+            Index: ticker symbols
+            Columns: dates in format YYYYMMDD
 
-        Args:
-            self
-
-        Returns:
-            raw_data: pd.DataFrame with all the days concatenated and calculated return values
+        Notes
+        -----
+        The process:
+        1. Iterates through specified years
+        2. Loads and processes each year's data
+        3. Concatenates all years together
+        4. Keeps only rows/columns present in all years (inner join)
         """
         years = self._run_sett["years"]
         raw_data = self.read_raw_year(years[0])
@@ -46,18 +64,27 @@ class ReadData:
         return raw_data
 
     def read_raw_year(self, year):
-        """Retrieves the raw return data.
+        """Load and process financial data for a specific year.
 
-        Retrieving steps:
-            need to loop over folders and over seperate daily csv.gz files
-            calculates return values r_t=log(p_{t}/p_{t-1})
+        Parameters
+        ----------
+        year : int
+            Year to process
 
-        Args:
-            self
-            year: int of year
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame containing log returns for the specified year
+            Index: ticker symbols
+            Columns: dates in format YYYYMMDD
 
-        Returns:
-            raw_data: pd.DataFrame with all the yearly days concatenated and calculated return values
+        Notes
+        -----
+        The process:
+        1. Loads daily price data from compressed CSV files
+        2. Extracts closing prices
+        3. Calculates log returns: r_t = log(p_t/p_{t-1})
+        4. Removes the first day (no return calculable)
         """
         sorted_strings = sorted(
             list_visible_files_with_list_comprehension(
@@ -95,19 +122,25 @@ class ReadData:
         return raw_data_year
 
     def parse_data(self, data: pd.DataFrame) -> pd.DataFrame:
-        """Applies some global cleaning of the data.
+        """Clean the raw financial data by removing invalid entries.
 
-        Error fixes:
-            drop days for which more than n/10 stocks have zero return values
-            drop stocks for which more than d/2 days have zero return values
-            drop days for which more than n/10 stocks have higher than 1 return values
-            drop stocks for which more than d/2 days have higher than 1 return values
+        Parameters
+        ----------
+        data : pd.DataFrame
+            Raw input data with log returns
 
-        Args:
-            data: raw input data
+        Returns
+        -------
+        pd.DataFrame
+            Cleaned dataset with invalid data removed
 
-        Returns:
-            data: parsed input data
+        Notes
+        -----
+        Cleaning steps:
+        1. Removes days where >10% of stocks have zero returns
+        2. Removes stocks where >50% of days have zero returns
+        3. Removes days where >10% of stocks have returns >100%
+        4. Removes stocks where >50% of days have returns >100%
         """
         thresh_n = data.shape[0] // 10
         thresh_d = data.shape[1] // 2
@@ -128,5 +161,17 @@ class ReadData:
 
 
 def list_visible_files_with_list_comprehension(directory):
+    """List all non-hidden files in a directory.
+
+    Parameters
+    ----------
+    directory : str
+        Path to the directory to scan
+
+    Returns
+    -------
+    list
+        List of filenames (excluding those starting with '.')
+    """
     visible_files = [file for file in os.listdir(directory) if not file.startswith(".")]
     return visible_files
