@@ -2,8 +2,16 @@ input_dir: 'input/data/yearly/'
 output_dir: 'output'
 input_fn: 'Input_file.xlsx'
 years: [2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021]
-models: { CAM: {"name": "VAR(p)", "p": 1, "L": 252, "S": 21},
-          UAM: {"name": "VAR(p)", "p": 1, "L": 252, "S": 21}}
+models:
+  {CAM: {"name": "VAR(p)", "p": 1, "L": 252, "S": 21},
+  UAM: {"name": "VAR(p)", "p": 1, "L": 252, "S": 21}}
+embeddings: {autoencoder:
+                          {encoding_dim: 10,
+                          batch_size: 32,
+                          epochs: 100,
+                          learning_rate: 0.001,
+                          n_clusters: 2}}
+
 embedding: 'spectral'
 diagnostics: [
           [top_level, t1, {diagnostic_start_date: '2011-01-01', diagnostic_end_date: '2020-01-01'}],
