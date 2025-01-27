@@ -1,4 +1,4 @@
-# DPhil Dissertation 
+# DPhil Dissertation Mihai
 
 Mac:
 ## Environment 
