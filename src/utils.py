@@ -3,7 +3,7 @@ import pandas as pd
 
 
 def plot_pnl_with_sharpe(pnl_obj):
-    """Plots a PnL curve and annotates it with the Sharpe ratio.
+    """Plots a PnL curve and annotates it with the Sharpe ratio (SR).
 
     Attributes:
         pnl_values (np.array): Array of PnL values (floats or ints).
