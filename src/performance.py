@@ -93,7 +93,7 @@ class PnL(Performance):
 
         Notes
         -----
-        PnL is calculated by multiplying signal signs (-1/1) with actual returns
+        PnL is calculated by multiplying signal signs (-1/1) with actual returns.
         """
         all_data = cam_obj.cluster_data.copy()
         dates = pd.to_datetime(all_data.columns)
