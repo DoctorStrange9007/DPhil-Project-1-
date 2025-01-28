@@ -95,24 +95,28 @@ class PnL(Performance):
         -----
         PnL is calculated by multiplying signal signs (-1/1) with actual returns.
         """
-        all_data = cam_obj.cluster_data.copy()
-        dates = pd.to_datetime(all_data.columns)
-        forecasted_dates = cam_obj.forecasted_dates
-        true_data = all_data.loc[:, dates.isin(forecasted_dates)]
-        sgn_forecasts = cam_obj.sgn_forecasts
-        sgn_forecasts = np.concatenate(sgn_forecasts, axis=0)
-        sgn_forecasts = sgn_forecasts[:-1, :]
-        asset_names = all_data.index.to_list()
-        res = sgn_forecasts * true_data.transpose().values
-        res_per_day_across_assets = res.sum(axis=1)
-        pnl_per_asset = np.cumsum(res, axis=0)
-        pnl_across_assets = pnl_per_asset.sum(axis=1)
+        _, test_data_sets, _ = self.data_obj.rolling_train_test_splits
+        pnl_across_assets = []
+        dates_forecasted = []
+        for test_set, sgn_forecasts in zip(
+            test_data_sets, cam_obj.sgn_forecasts
+        ):  # should I remove the first element as it is used for forecasting initiation?
+            dates = pd.to_datetime(test_set.columns)
+            forecasted_dates = (
+                cam_obj.forecasted_dates
+            )  # I can check that by looking at this as this has to overlap with dates_forecasted after for loop
+            # true_data = all_data.loc[:, dates.isin(forecasted_dates)] # does this change anything now?
+            # sgn_forecasts = np.concatenate(sgn_forecasts, axis=0)
+            # sgn_forecasts = sgn_forecasts[:-1, :]
+            # asset_names = test_set.index.to_list()
+            res = sgn_forecasts * test_set.transpose().values
+            res_per_day_across_assets = res.sum(axis=1)
+            pnl_per_asset = np.cumsum(res, axis=0)
+            pnl_across_assets.append(pnl_per_asset.sum(axis=1))
+            dates_forecasted.append(dates)
 
         return {
             "pnl_across_assets": pnl_across_assets,
             "daily_profit_or_loss_across_assets": res_per_day_across_assets,
-            "daily_profit_or_loss_per_asset": res,
-            "pnl_per_asset": pnl_per_asset,
             "dates": forecasted_dates,
-            "asset_names": asset_names,
         }

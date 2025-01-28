@@ -16,13 +16,21 @@ if __name__ == "__main__":
 
     # Choose embedding method based on settings
     if run_sett["embedding"] == "spectral":
-        clustered_dfs = Spectral(run_sett, data_obj).clustered_dfs
+        clustered_dfs_train_sets, clustered_dfs_test_sets, forecasted_dates = Spectral(
+            run_sett, data_obj
+        ).rolling_embedding_clustering()
     elif run_sett["embedding"] == "autoencoder":
-        clustered_dfs = AutoEncoder(run_sett, data_obj).clustered_dfs
+        (
+            clustered_dfs_train_sets,
+            clustered_dfs_test_sets,
+            forecasted_dates,
+        ) = AutoEncoder(run_sett, data_obj).clustered_dfs_sets
     else:
         raise ValueError(f"Unknown embedding method: {run_sett['embedding']}")
 
-    pred_obj = UAM(run_sett, clustered_dfs)
+    pred_obj = UAM(
+        run_sett, clustered_dfs_train_sets, clustered_dfs_test_sets, forecasted_dates
+    )
     pnl_obj = PnL(data_obj, pred_obj)
     utils.plot_pnl_with_sharpe(pnl_obj)
     a = 6

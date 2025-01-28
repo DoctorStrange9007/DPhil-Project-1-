@@ -1,6 +1,5 @@
 import numpy as np
 from statsmodels.tsa.api import VAR
-import pandas as pd
 import multiprocessing as mp
 import warnings
 from statsmodels.tsa.base.tsa_model import ValueWarning
@@ -17,12 +16,20 @@ class Model:
     ----------
     run_sett : dict
         Dictionary containing all runtime settings and parameters
-    clustered_dfs : dict
-        Dictionary of DataFrames containing clustered financial data
+    clustered_dfs_sets : list
+        List of dictionaries of DataFrames containing clustered financial data
     """
 
-    def __init__(self, run_sett: dict, clustered_dfs):
-        self.clustered_dfs = clustered_dfs
+    def __init__(
+        self,
+        run_sett: dict,
+        clustered_dfs_train_sets,
+        clustered_dfs_test_sets,
+        forecasted_dates,
+    ):
+        self.clustered_dfs_train_sets = clustered_dfs_train_sets
+        self.clustered_dfs_test_sets = clustered_dfs_test_sets
+        self.forecasted_dates = forecasted_dates
         self._run_sett = run_sett
 
 
@@ -40,15 +47,52 @@ class UAM(Model):
         Dictionary of DataFrames containing clustered financial data
     """
 
-    def __init__(self, run_sett: dict, clustered_dfs):
-        super().__init__(run_sett, clustered_dfs)
+    def __init__(
+        self,
+        run_sett: dict,
+        clustered_dfs_train_sets,
+        clustered_dfs_test_sets,
+        forecasted_dates,
+    ):
+        super().__init__(
+            run_sett,
+            clustered_dfs_train_sets,
+            clustered_dfs_test_sets,
+            forecasted_dates,
+        )
+        (
+            self.train_data_per_cam,
+            self.test_data_per_cam,
+        ) = self.create_data_sets_per_cam()
         self.cam_objs = self.combine_cams()
         self.model_sett = self._run_sett["models"]["UAM"]
 
+    def create_data_sets_per_cam(self):
+        train_data_per_cam = {}
+        test_data_per_cam = {}
+        for cluster_label in list(self.clustered_dfs_train_sets[0].keys()):
+            train_data_per_cam[cluster_label] = [
+                d[cluster_label] for d in self.clustered_dfs_train_sets
+            ]
+            test_data_per_cam[cluster_label] = [
+                d[cluster_label] for d in self.clustered_dfs_test_sets
+            ]
+
+        return train_data_per_cam, test_data_per_cam
+
     def combine_cams(self):
         cam_objs = {}
-        for cluster_label, clustered_df in self.clustered_dfs.items():
-            cam_obj = CAM(self._run_sett, self.clustered_dfs, clustered_df)
+        for cluster_label in list(self.train_data_per_cam.keys()):
+            cluster_train_sets = self.train_data_per_cam[cluster_label]
+            cluster_test_sets = self.test_data_per_cam[cluster_label]
+            cam_obj = CAM(
+                self._run_sett,
+                self.clustered_dfs_train_sets,
+                self.clustered_dfs_test_sets,
+                cluster_train_sets,
+                cluster_test_sets,
+                self.forecasted_dates,
+            )
             cam_objs[cluster_label] = cam_obj
 
         return cam_objs
@@ -70,13 +114,27 @@ class CAM(Model):
         Data for the specific cluster being modeled
     """
 
-    def __init__(self, run_sett: dict, clustered_dfs, cluster_data):
-        super().__init__(run_sett, clustered_dfs)
-        self.cutoff = "20210104"
+    def __init__(
+        self,
+        run_sett: dict,
+        clustered_dfs_train_sets,
+        clustered_dfs_test_sets,
+        cluster_train_sets,
+        cluster_test_sets,
+        forecasted_dates,
+    ):
+        super().__init__(
+            run_sett,
+            clustered_dfs_train_sets,
+            clustered_dfs_test_sets,
+            forecasted_dates,
+        )
         self.model_sett = self._run_sett["models"]["CAM"]
         self.model_lag = self.model_sett["p"]
-        self.cluster_data = cluster_data
-        self.sgn_forecasts, self.forecasted_dates = self.calculate()
+        self.forecasted_dates = forecasted_dates
+        self.cluster_train_data = cluster_train_sets
+        self.cluster_test_data = cluster_test_sets
+        self.sgn_forecasts = self.calculate()
 
     def calculate(self):
         """Execute the main calculation pipeline for the CAM model.
@@ -89,59 +147,18 @@ class CAM(Model):
             - forecasted_dates : pandas.DatetimeIndex
                 Dates corresponding to the forecasts
         """
-        all_data = self.cluster_data.copy()
-
-        sgn_forecasts, forcasted_date_sets = self.rolling_training_testing(
-            self.model_sett["L"], self.model_sett["S"], all_data
-        )
-
-        return sgn_forecasts, forcasted_date_sets
-
-    def rolling_training_testing(self, L, S, all_data):
-        """Perform rolling window training and testing using parallel processing.
-
-        Parameters
-        ----------
-        L : int
-            Lookback window size (e.g., 252 trading days)
-        S : int
-            Step size for model refitting (e.g., 21 trading days)
-        all_data : pd.DataFrame
-            Complete dataset for training and testing
-
-        Returns
-        -------
-        tuple
-            - sgn_forecasts : list of numpy.ndarray
-                Binary predictions (-1 or 1) for each rolling window
-            - forecasted_dates : pandas.DatetimeIndex
-                Dates corresponding to the forecasts
-        """
-        nr_models = all_data.shape[1] // S
-        dates = pd.to_datetime(all_data.columns)
-
-        train_date_sets = [dates[i : i + L] for i in range(0, len(dates) - L, S)][
-            :nr_models
-        ]
-        train_data_sets = [
-            all_data.loc[:, dates.isin(date_set)] for date_set in train_date_sets
-        ]
-
-        test_date_sets = [dates[i : i + S] for i in range(L - 1, len(dates), S)]
-        forecasted_dates = dates[L:]
-        test_data_sets = [
-            all_data.loc[:, dates.isin(date_set)] for date_set in test_date_sets
-        ]
 
         pool = mp.Pool(mp.cpu_count())
-        results = pool.map(self.train, [data_set for data_set in train_data_sets])
+        results = pool.map(
+            self.train, [data_set for data_set in self.cluster_train_data]
+        )
         sgn_forecasts = [
             pool.apply(test, args=(test_data_set, result))
-            for test_data_set, result in zip(test_data_sets, results)
+            for test_data_set, result in zip(self.cluster_test_data, results)
         ]
         pool.close()
 
-        return sgn_forecasts, forecasted_dates
+        return sgn_forecasts
 
     def train(self, data):
         """Train a VAR model on a single window of data.
@@ -160,7 +177,7 @@ class CAM(Model):
         -----
         Currently limited to first 20 columns for computational efficiency
         """
-        adj_train = data.transpose().iloc[:, :20]  # for now due to computational time
+        adj_train = data.transpose()
         model = VAR(adj_train)
         result = model.fit(self.model_lag)
 
@@ -189,7 +206,7 @@ def test(data, result):
     """
     all_forecasts = []
     for step in range(data.shape[1]):
-        adj_test = data.transpose().iloc[:, :20]  # for now due to computational time
+        adj_test = data.transpose()
         forecast = result.forecast(
             adj_test.values[step : step + 1], steps=1
         )  # step + 1 := step + p

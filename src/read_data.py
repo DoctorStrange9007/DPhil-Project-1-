@@ -34,7 +34,10 @@ class ReadData:
         """constructs a ReadData object"""
         self._run_sett = run_sett
         self._raw_data = self.read_raw()
-        self.data = self.parse_data(data=self._raw_data)
+        self._data = self.parse_data()
+        self.rolling_train_test_splits = self.get_rolling_train_test_splits(
+            L=self._run_sett["data"]["L"], S=self._run_sett["data"]["S"]
+        )
 
     def read_raw(self):
         """Load and combine raw financial data across multiple years.
@@ -121,13 +124,8 @@ class ReadData:
 
         return raw_data_year
 
-    def parse_data(self, data: pd.DataFrame) -> pd.DataFrame:
+    def parse_data(self) -> pd.DataFrame:
         """Clean the raw financial data by removing invalid entries.
-
-        Parameters
-        ----------
-        data : pd.DataFrame
-            Raw input data with log returns
 
         Returns
         -------
@@ -142,6 +140,7 @@ class ReadData:
         3. Removes days where >10% of stocks have returns >100%
         4. Removes stocks where >50% of days have returns >100%
         """
+        data = self._raw_data
         thresh_n = data.shape[0] // 10
         thresh_d = data.shape[1] // 2
         zero_return_df = data == 0
@@ -158,6 +157,45 @@ class ReadData:
         parsed_data = data.loc[valid_stocks, valid_days]
 
         return parsed_data
+
+    def get_rolling_train_test_splits(self, L: int, S: int):
+        """Perform rolling window training and testing using parallel processing.
+
+        Parameters
+        ----------
+        L : int
+            Lookback window size (e.g., 252 trading days)
+        S : int
+            Step size for model refitting (e.g., 21 trading days)
+        all_data : pd.DataFrame
+            Complete dataset for training and testing
+
+        Returns
+        -------
+        tuple
+            - train_data_sets : list of pd.DataFrame train sets
+            - test_data_sets : list of pd.DataFrame test sets
+            - forecasted_dates : pandas.DatetimeIndex
+                Dates corresponding to the forecasts
+        """
+        all_data = self._data
+        nr_models = all_data.shape[1] // S
+        dates = pd.to_datetime(all_data.columns)
+
+        train_date_sets = [dates[i : i + L] for i in range(0, len(dates) - L, S)][
+            :nr_models
+        ]
+        train_data_sets = [
+            all_data.loc[:, dates.isin(date_set)] for date_set in train_date_sets
+        ]
+
+        test_date_sets = [dates[i : i + S] for i in range(L - 1, len(dates), S)]
+        forecasted_dates = dates[L:]
+        test_data_sets = [
+            all_data.loc[:, dates.isin(date_set)] for date_set in test_date_sets
+        ]
+
+        return train_data_sets, test_data_sets, forecasted_dates
 
 
 def list_visible_files_with_list_comprehension(directory):

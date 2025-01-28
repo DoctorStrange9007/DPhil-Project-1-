@@ -4,6 +4,7 @@ from sklearn.cluster import KMeans
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import multiprocessing as mp
 from torch.utils.data import DataLoader, TensorDataset
 
 
@@ -62,15 +63,45 @@ class Spectral(Embedding):
 
     def __init__(self, run_sett: dict, data_obj):
         super().__init__(run_sett, data_obj)
-        self._correlation_matrix = np.corrcoef(
-            self.data_obj.data[:20]
-        )  # for now due to computational time)
-        self.cluster_labels = self.cluster_embedding(
-            self.spectral_embedding(self._correlation_matrix)
-        )
-        self.clustered_dfs = self.clustered_data()
+        (
+            self.clustered_dfs_train_sets,
+            self.clustered_dfs_test_sets,
+            self.forecasted_dates,
+        ) = self.rolling_embedding_clustering()
 
-    def spectral_embedding(self, correlation_matrix):
+    def rolling_embedding_clustering(self):
+        (
+            train_data_sets,
+            test_data_sets,
+            forecasted_dates,
+        ) = self.data_obj.rolling_train_test_splits
+        pool = mp.Pool(mp.cpu_count())
+        embeddings = pool.map(
+            self.spectral_embedding, [data_set for data_set in train_data_sets]
+        )
+        cluster_labels_sets = pool.map(
+            self.cluster_embedding, [embedding for embedding in embeddings]
+        )
+        pool.close()
+
+        clustered_dfs_train_sets = []
+        clustered_dfs_test_sets = []
+        for i, cluster_labels in enumerate(cluster_labels_sets):
+            clustered_dfs_train = {}
+            clustered_dfs_test = {}
+            for cluster in np.unique(cluster_labels):
+                clustered_dfs_train[cluster] = train_data_sets[i][:20].iloc[
+                    cluster_labels == cluster
+                ]  # for now due to computational time)
+                clustered_dfs_test[cluster] = test_data_sets[i][:20].iloc[
+                    cluster_labels == cluster
+                ]  # for now due to computational time)
+            clustered_dfs_train_sets.append(clustered_dfs_train)
+            clustered_dfs_test_sets.append(clustered_dfs_test)
+
+        return clustered_dfs_train_sets, clustered_dfs_test_sets, forecasted_dates
+
+    def spectral_embedding(self, data_set):
         """Apply spectral embedding to the correlation matrix.
 
         Parameters
@@ -87,8 +118,12 @@ class Spectral(Embedding):
         -----
         Uses precomputed affinity matrix with 10 components for embedding
         """
+        correlation_matrix = np.corrcoef(
+            data_set[:20]
+        )  # for now due to computational time)
+        similarity_matrix = (correlation_matrix + 1) / 2
         spectral = SpectralEmbedding(n_components=10, affinity="precomputed")
-        spectral_embedding = spectral.fit_transform(correlation_matrix)
+        spectral_embedding = spectral.fit_transform(similarity_matrix)
 
         return spectral_embedding
 
@@ -116,27 +151,6 @@ class Spectral(Embedding):
         cluster_labels = kmeans.labels_
 
         return cluster_labels
-
-    def clustered_data(self):
-        """Group the original data by cluster assignments.
-
-        Returns
-        -------
-        dict
-            Dictionary where keys are cluster labels and values are
-            pandas DataFrames containing the data for assets in that cluster
-
-        Notes
-        -----
-        Currently only processes first 20 assets due to computational constraints
-        """
-        clustered_dfs = {}
-        for cluster in np.unique(self.cluster_labels):
-            clustered_dfs[cluster] = self.data_obj.data[:20].iloc[
-                self.cluster_labels == cluster
-            ]  # for now due to computational time)
-
-        return clustered_dfs
 
 
 # first setup of autoencoder, specifics are not correct have to look into how to do it correctly
@@ -202,7 +216,9 @@ class AutoEncoder(Embedding):
 
     def __init__(self, run_sett: dict, data_obj):
         super().__init__(run_sett, data_obj)
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = torch.device(
+            "mps" if torch.backends.mps.is_available() else "cpu"
+        )
         self.encoding_dim = run_sett["embeddings"]["autoencoder"]["encoding_dim"]
 
         # Initialize data

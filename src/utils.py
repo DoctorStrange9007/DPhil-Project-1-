@@ -102,26 +102,17 @@ def plot_pnl_with_sharpe_per_cam(cam_label, cam_pnl_obj):
     - Each curve is labeled with its annualized Sharpe ratio
     - Returns only the CAM's aggregate PnL for use in UAM calculations
     """
-    asset_names = cam_pnl_obj["asset_names"]
     pnl_values_across_assets = cam_pnl_obj["pnl_across_assets"]
-    pnl_values_per_asset = cam_pnl_obj["pnl_per_asset"]
     pnl_dates = cam_pnl_obj["dates"]
     sharpe_ratio_across_assets = yearly_sharpe_ratio(pnl_values_across_assets)
-    sharpe_ratio_per_asset = yearly_sharpe_ratio(pnl_values_per_asset)
 
     df = pd.DataFrame(
         {"Date": pnl_dates, "PnL_CAM_" + str(cam_label): pnl_values_across_assets}
     )
     df["Date"] = pd.to_datetime(df["Date"])
-    for asset, asset_pnl in zip(asset_names, pnl_values_per_asset.transpose()):
-        df["PnL_" + asset] = asset_pnl
 
     label = f"{df.columns[1]} ({sharpe_ratio_across_assets})"
     plt.plot(df["Date"], df[df.columns[1]], label=label, linewidth=2)
-
-    for column, sharpe_ratio in zip(df.columns[2:], sharpe_ratio_per_asset):
-        label = f"{column} ({sharpe_ratio})"
-        plt.plot(df["Date"], df[column], label=label, linewidth=2)
 
     return df[["PnL_CAM_" + str(cam_label)]]
 
