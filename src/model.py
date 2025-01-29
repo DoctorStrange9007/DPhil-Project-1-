@@ -1,5 +1,6 @@
 import numpy as np
 from statsmodels.tsa.api import VAR
+from statsmodels.tsa.ar_model import AutoReg
 import multiprocessing as mp
 import warnings
 from statsmodels.tsa.base.tsa_model import ValueWarning
@@ -134,6 +135,7 @@ class CAM(Model):
         self.forecasted_dates = forecasted_dates
         self.cluster_train_data = cluster_train_sets
         self.cluster_test_data = cluster_test_sets
+        self.assets = [test_data.index for test_data in self.cluster_test_data]
         self.sgn_forecasts = self.calculate()
 
     def calculate(self):
@@ -178,8 +180,13 @@ class CAM(Model):
         Currently limited to first 20 columns for computational efficiency
         """
         adj_train = data.transpose()
-        model = VAR(adj_train)
-        result = model.fit(self.model_lag)
+        if (
+            adj_train.shape[1] == 1
+        ):  # probably not necessary when fitting on entire data
+            result = AutoReg(adj_train, lags=self.model_lag).fit()
+        else:
+            model = VAR(adj_train)
+            result = model.fit(self.model_lag)
 
         return result
 
@@ -205,14 +212,23 @@ def test(data, result):
     - Uses 0.00005 as the threshold for positive/negative prediction
     """
     all_forecasts = []
-    for step in range(data.shape[1]):
-        adj_test = data.transpose()
-        forecast = result.forecast(
-            adj_test.values[step : step + 1], steps=1
-        )  # step + 1 := step + p
-        sgn_forecast = np.where(
-            forecast > 0.00005, 1, -1
+    if data.transpose().shape[1] == 1:
+        forecasts = result.forecast(
+            steps=data.shape[1]
+        )  # not entirely correct, but wont use this if fitted on all data as clusters of 1 dont make sense
+        sgn_forecasts = np.where(
+            forecasts > 0.00005, 1, -1
         )  # can change delta (e.g. betsize)
-        all_forecasts.append(*sgn_forecast)
+        all_forecasts.append(sgn_forecasts)
+    else:
+        for step in range(data.shape[1]):
+            adj_test = data.transpose()
+            forecast = result.forecast(
+                adj_test.values[step : step + 1], steps=1
+            )  # step + 1 := step + p
+            sgn_forecast = np.where(
+                forecast > 0.00005, 1, -1
+            )  # can change delta (e.g. betsize)
+            all_forecasts.append(*sgn_forecast)
 
     return np.array(all_forecasts)

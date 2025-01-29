@@ -66,7 +66,9 @@ class PnL(Performance):
 
         return cams_res
 
-    def calculate_cam(self, cam_obj):
+    def calculate_cam(
+        self, cam_obj, S=21, L=252
+    ):  # could include S and L in run_sett and take as argument above
         """Calculate PnL metrics for a single Cluster Asset Model.
 
         Parameters
@@ -95,28 +97,37 @@ class PnL(Performance):
         -----
         PnL is calculated by multiplying signal signs (-1/1) with actual returns.
         """
-        _, test_data_sets, _ = self.data_obj.rolling_train_test_splits
         pnl_across_assets = []
         dates_forecasted = []
-        for test_set, sgn_forecasts in zip(
-            test_data_sets, cam_obj.sgn_forecasts
-        ):  # should I remove the first element as it is used for forecasting initiation?
+        # to get the test data that is overlaps with the forecasted dates (no L-1 but L)
+        all_data = self._data_obj._data
+        dates = pd.to_datetime(all_data.columns)
+        test_date_sets = [dates[i : i + S] for i in range(L, len(dates), S)]
+        test_data_sets = [
+            all_data.loc[:, dates.isin(date_set)] for date_set in test_date_sets
+        ]
+        for i, (test_set, sgn_forecasts) in enumerate(
+            zip(test_data_sets, cam_obj.sgn_forecasts)
+        ):
             dates = pd.to_datetime(test_set.columns)
-            forecasted_dates = (
-                cam_obj.forecasted_dates
-            )  # I can check that by looking at this as this has to overlap with dates_forecasted after for loop
-            # true_data = all_data.loc[:, dates.isin(forecasted_dates)] # does this change anything now?
+            forecasted_dates = cam_obj.forecasted_dates
+            test_set = test_set.loc[
+                test_set.index.isin(cam_obj.assets[i]), dates.isin(forecasted_dates)
+            ]  # works out previous remark
             # sgn_forecasts = np.concatenate(sgn_forecasts, axis=0)
+            if i == len(cam_obj.sgn_forecasts) - 1:
+                sgn_forecasts = sgn_forecasts[
+                    :-1
+                ]  # remove last element as we don't have test data for that
             # sgn_forecasts = sgn_forecasts[:-1, :]
             # asset_names = test_set.index.to_list()
             res = sgn_forecasts * test_set.transpose().values
-            res_per_day_across_assets = res.sum(axis=1)
             pnl_per_asset = np.cumsum(res, axis=0)
             pnl_across_assets.append(pnl_per_asset.sum(axis=1))
             dates_forecasted.append(dates)
 
         return {
-            "pnl_across_assets": pnl_across_assets,
-            "daily_profit_or_loss_across_assets": res_per_day_across_assets,
+            # "daily returns_across_assets": res.sum(axis=1), check that it is correct for sure
+            "pnl_across_assets": np.concatenate(pnl_across_assets, axis=0),
             "dates": forecasted_dates,
         }

@@ -140,4 +140,6 @@ def yearly_sharpe_ratio(pnl_ts):
     - Annualization is done by multiplying by sqrt(n) where n is the
       number of observations in the time series
     """
-    return (np.mean(pnl_ts, axis=0) / np.std(pnl_ts, axis=0)) * np.sqrt(pnl_ts.shape[0])
+    return (np.mean(pnl_ts, axis=0) / np.std(pnl_ts, axis=0)) * np.sqrt(
+        pnl_ts.shape[0]
+    )  # adjust for risk free rate
