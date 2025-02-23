@@ -90,12 +90,12 @@ class Spectral(Embedding):
             clustered_dfs_train = {}
             clustered_dfs_test = {}
             for cluster in np.unique(cluster_labels):
-                clustered_dfs_train[cluster] = train_data_sets[i][:20].iloc[
+                clustered_dfs_train[cluster] = train_data_sets[i].iloc[
                     cluster_labels == cluster
-                ]  # for now due to computational time)
-                clustered_dfs_test[cluster] = test_data_sets[i][:20].iloc[
+                ]
+                clustered_dfs_test[cluster] = test_data_sets[i].iloc[
                     cluster_labels == cluster
-                ]  # for now due to computational time)
+                ]
             clustered_dfs_train_sets.append(clustered_dfs_train)
             clustered_dfs_test_sets.append(clustered_dfs_test)
 
@@ -118,9 +118,7 @@ class Spectral(Embedding):
         -----
         Uses precomputed affinity matrix with 10 components for embedding
         """
-        correlation_matrix = np.corrcoef(
-            data_set[:20]
-        )  # for now due to computational time)
+        correlation_matrix = np.corrcoef(data_set)
         similarity_matrix = (correlation_matrix + 1) / 2
         spectral = SpectralEmbedding(n_components=10, affinity="precomputed")
         spectral_embedding = spectral.fit_transform(similarity_matrix)

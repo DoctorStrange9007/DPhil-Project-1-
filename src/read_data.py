@@ -64,7 +64,9 @@ class ReadData:
             raw_data_temp = self.read_raw_year(year)
             raw_data = pd.concat([raw_data, raw_data_temp], axis=1, join="inner")
 
-        return raw_data
+        return raw_data.iloc[
+            :30
+        ]  # for now due to computational time XXXXXXXCHANGEXXXXXXX
 
     def read_raw_year(self, year):
         """Load and process financial data for a specific year.
