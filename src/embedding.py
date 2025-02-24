@@ -1,12 +1,12 @@
 import numpy as np
-from sklearn.manifold import SpectralEmbedding
-from sklearn.cluster import KMeans
 import torch
 import torch.nn as nn
 import torch.optim as optim
 import multiprocessing as mp
 from torch.utils.data import DataLoader, TensorDataset
 import pandas as pd
+from signet.cluster import Cluster
+from scipy.sparse import csc_matrix
 
 
 class Embedding:
@@ -77,11 +77,8 @@ class Spectral(Embedding):
             forecasted_dates,
         ) = self.data_obj.rolling_train_test_splits
         pool = mp.Pool(mp.cpu_count())
-        embeddings = pool.map(
-            self.spectral_embedding, [data_set for data_set in train_data_sets]
-        )
         cluster_labels_sets = pool.map(
-            self.cluster_embedding, [embedding for embedding in embeddings]
+            self.spectral_embedding, [data_set for data_set in train_data_sets]
         )
         pool.close()
 
@@ -120,36 +117,19 @@ class Spectral(Embedding):
         Uses precomputed affinity matrix with 10 components for embedding
         """
         correlation_matrix = np.corrcoef(data_set)
-        similarity_matrix = (correlation_matrix + 1) / 2
-        spectral = SpectralEmbedding(n_components=10, affinity="precomputed")
-        spectral_embedding = spectral.fit_transform(similarity_matrix)
-
-        return spectral_embedding
-
-    def cluster_embedding(self, embedding):
-        """Cluster the embedded data using K-means.
-
-        Parameters
-        ----------
-        embedding : numpy.ndarray
-            Lower-dimensional embedding of the data
-
-        Returns
-        -------
-        numpy.ndarray
-            Cluster labels for each asset
-
-        Notes
-        -----
-        Currently uses fixed k=2 clusters
-        Future implementation will use cross-validation for optimal k
-        """
+        Ap = csc_matrix(
+            (correlation_matrix > 0).astype(int)
+        )  # Positive adjacency matrix
+        An = csc_matrix(
+            (correlation_matrix < 0).astype(int)
+        )  # Negative adjacency matrix
         k = 2  # cross validate in the future
-        kmeans = KMeans(n_clusters=k, init="k-means++", random_state=1)
-        kmeans.fit(embedding)
-        cluster_labels = kmeans.labels_
+        cluster = Cluster((Ap, An))
+        predicted_clusters = cluster.spectral_cluster_laplacian(
+            k=k, normalisation="sym"
+        )
 
-        return cluster_labels
+        return predicted_clusters
 
 
 class Sector(Embedding):

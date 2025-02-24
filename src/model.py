@@ -223,7 +223,7 @@ def test(data, result):
             )
             sgn_forecast = np.where(
                 forecast > 0.00005, 1, -1
-            )  # can change delta (e.g. betsize)
+            )  # can change delta (e.g. betsize), probably change to 0 for some values as well (decile trading)
             all_forecasts.append(*sgn_forecast)
     else:
         for step in range(data.shape[1]):

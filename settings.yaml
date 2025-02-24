@@ -18,7 +18,7 @@ embeddings: {autoencoder:
                           learning_rate: 0.001,
                           n_clusters: 2}}
 
-embedding: 'spectral'
+embedding: 'sector'
 diagnostics: [
           [top_level, t1, {diagnostic_start_date: '2011-01-01', diagnostic_end_date: '2020-01-01'}],
           [lower_level, l2, {diagnostic_start_date: '2011-01-01', diagnostic_end_date: '2020-01-01'}]
