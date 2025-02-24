@@ -1,6 +1,8 @@
 import os
 import pandas as pd
 import numpy as np
+from statsmodels.api import OLS
+from statsmodels.api import add_constant
 
 
 class ReadData:
@@ -65,7 +67,7 @@ class ReadData:
             raw_data = pd.concat([raw_data, raw_data_temp], axis=1, join="inner")
 
         return raw_data.iloc[
-            :30
+            :50
         ]  # for now due to computational time XXXXXXXCHANGEXXXXXXX
 
     def read_raw_year(self, year):
@@ -157,8 +159,66 @@ class ReadData:
             | (bigger_than_one_return_df.sum(axis=1) > thresh_d)
         )
         parsed_data = data.loc[valid_stocks, valid_days]
+        non_company = self._run_sett["non_company"]
+        SPY_ETF = parsed_data.loc["SPY", :]
+        parsed_data = parsed_data.loc[~parsed_data.index.isin(non_company)]
+        parsed_data = self.calculate_excess_returns(parsed_data, SPY_ETF)
+        parsed_data = parsed_data.apply(pd.to_numeric)
 
         return parsed_data
+
+    def calculate_excess_returns(
+        self, data: pd.DataFrame, SPY_ETF: pd.Series, window: int = 60
+    ) -> pd.DataFrame:
+        """Calculate excess returns from price data, where Beta is calculated on a rolling 60 day window.
+
+        Parameters
+        ----------
+        data : pd.DataFrame
+            Price data
+
+        Returns
+        -------
+        pd.DataFrame
+            Excess returns"""
+        dates = data.columns
+
+        date_sets_per_window = [
+            dates[i : i + window] for i in range(0, len(dates), window)
+        ]
+        all_dates_except_last_set = dates[~dates.isin(date_sets_per_window[0])]
+        test_data_sets = [
+            data.loc[:, dates.isin(date_set)] for date_set in date_sets_per_window
+        ]
+        SPY_ETF_sets = [
+            SPY_ETF.loc[dates.isin(date_set)] for date_set in date_sets_per_window
+        ]
+
+        excess_returns_df = pd.DataFrame(
+            index=data.index, columns=all_dates_except_last_set
+        )
+
+        # Iterate over each company
+        for company in data.index:
+            # Perform regression for each window
+            for i, (test_data, spy_etf) in enumerate(
+                zip(test_data_sets[:-1], SPY_ETF_sets[:-1])
+            ):
+                y = test_data.loc[company]
+                X = spy_etf
+                X = add_constant(X)  # Add constant for intercept
+
+                # Fit the model
+                model = OLS(y, X).fit()
+                beta = model.params[1]  # Get the beta coefficient
+
+                next_window_data = test_data_sets[i + 1].loc[company]
+                excess_return = next_window_data - beta * SPY_ETF_sets[i + 1]
+
+                # Store the excess returns in the DataFrame
+                excess_returns_df.loc[company, next_window_data.index] = excess_return
+
+        return excess_returns_df
 
     def get_rolling_train_test_splits(self, L: int, S: int):
         """Perform rolling window training and testing using parallel processing.

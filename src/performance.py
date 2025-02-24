@@ -116,9 +116,13 @@ class PnL(Performance):
             ]  # works out previous remark
             # sgn_forecasts = np.concatenate(sgn_forecasts, axis=0)
             if i == len(cam_obj.sgn_forecasts) - 1:
-                sgn_forecasts = sgn_forecasts[
-                    :-1
-                ]  # remove last element as we don't have test data for that
+                if sgn_forecasts.shape[0] == 1:
+                    # if it is one dimensional, make sure it goes right
+                    sgn_forecasts = sgn_forecasts[:, :-1]
+                else:
+                    sgn_forecasts = sgn_forecasts[
+                        :-1
+                    ]  # remove last element as we don't have test data for that
             # sgn_forecasts = sgn_forecasts[:-1, :]
             # asset_names = test_set.index.to_list()
             res = sgn_forecasts * test_set.transpose().values

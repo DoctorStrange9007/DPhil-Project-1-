@@ -33,8 +33,8 @@ def plot_pnl_with_sharpe(pnl_obj):
     model_lag = pnl_obj.pred_obj.model_sett["p"]
     plt.figure(figsize=(12, 6))
 
-    for cam_label, cam_res in pnl_obj.pnl_res.items():
-        if cam_label == 0:
+    for i, (cam_label, cam_res) in enumerate(pnl_obj.pnl_res.items()):
+        if i == 0:
             df_UAM = plot_pnl_with_sharpe_per_cam(cam_label, cam_res)
             df_UAM["Dates"] = cam_res["dates"]
         else:
@@ -43,9 +43,7 @@ def plot_pnl_with_sharpe(pnl_obj):
             )
 
     # plot UAM
-    label = (
-        f"PnL_UAM_({yearly_sharpe_ratio(df_UAM.drop(columns=['Dates']).sum(axis=1))})"
-    )
+    label = f"PnL_UAM_(SR:{yearly_sharpe_ratio(df_UAM.drop(columns=['Dates']).sum(axis=1)):.2f})_(SoR:{yearly_sortino_ratio(df_UAM.drop(columns=['Dates']).sum(axis=1)):.2f})"
     plt.plot(
         df_UAM["Dates"],
         df_UAM.drop(columns=["Dates"]).sum(axis=1),
@@ -105,13 +103,14 @@ def plot_pnl_with_sharpe_per_cam(cam_label, cam_pnl_obj):
     pnl_values_across_assets = cam_pnl_obj["pnl_across_assets"]
     pnl_dates = cam_pnl_obj["dates"]
     sharpe_ratio_across_assets = yearly_sharpe_ratio(pnl_values_across_assets)
+    sortino_ratio_across_assets = yearly_sortino_ratio(pnl_values_across_assets)
 
     df = pd.DataFrame(
         {"Date": pnl_dates, "PnL_CAM_" + str(cam_label): pnl_values_across_assets}
     )
     df["Date"] = pd.to_datetime(df["Date"])
 
-    label = f"{df.columns[1]} ({sharpe_ratio_across_assets})"
+    label = f"{df.columns[1]} (SR:{sharpe_ratio_across_assets:.2f}), (SoR:{sortino_ratio_across_assets:.2f})"
     plt.plot(df["Date"], df[df.columns[1]], label=label, linewidth=2)
 
     return df[["PnL_CAM_" + str(cam_label)]]
@@ -142,4 +141,15 @@ def yearly_sharpe_ratio(pnl_ts):
     """
     return (np.mean(pnl_ts, axis=0) / np.std(pnl_ts, axis=0)) * np.sqrt(
         pnl_ts.shape[0]
-    )  # adjust for risk free rate
+    )  # assume for risk free rate is 0
+
+
+def yearly_sortino_ratio(pnl_ts):
+    """Calculate the annualized Sortino ratio for a PnL time series.
+
+    Computes the Sortino ratio by taking the mean return divided by
+    the standard deviation of negative returns, then annualizing based on the number"""
+    pnl_ts_down = pnl_ts[pnl_ts < 0]
+    return (np.mean(pnl_ts, axis=0) / np.std(pnl_ts_down, axis=0)) * np.sqrt(
+        pnl_ts.shape[0]
+    )  # assume for risk free rate is 0

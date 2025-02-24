@@ -4,7 +4,7 @@ from src.read_data import ReadData
 from src.model import UAM
 from src.performance import PnL
 from src import utils
-from src.embedding import Spectral, AutoEncoder
+from src.embedding import Spectral, AutoEncoder, Sector
 
 if __name__ == "__main__":
     with open("settings.yaml", "r") as f:
@@ -19,6 +19,10 @@ if __name__ == "__main__":
         clustered_dfs_train_sets, clustered_dfs_test_sets, forecasted_dates = Spectral(
             run_sett, data_obj
         ).rolling_embedding_clustering()
+    elif run_sett["embedding"] == "sector":
+        clustered_dfs_train_sets, clustered_dfs_test_sets, forecasted_dates = Sector(
+            run_sett, data_obj
+        ).rolling_sector_clustering()
     elif run_sett["embedding"] == "autoencoder":
         (
             clustered_dfs_train_sets,

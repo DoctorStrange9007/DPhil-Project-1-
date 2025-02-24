@@ -6,6 +6,7 @@ import torch.nn as nn
 import torch.optim as optim
 import multiprocessing as mp
 from torch.utils.data import DataLoader, TensorDataset
+import pandas as pd
 
 
 class Embedding:
@@ -149,6 +150,72 @@ class Spectral(Embedding):
         cluster_labels = kmeans.labels_
 
         return cluster_labels
+
+
+class Sector(Embedding):
+    """Sector embedding implementation for financial time series.
+
+    Performs dimensionality reduction using sector embedding followed by
+    clustering to identify groups of similarly behaving assets."""
+
+    def __init__(self, run_sett: dict, data_obj):
+        super().__init__(run_sett, data_obj)
+        self.sector_mapping = (
+            pd.read_csv(
+                self._run_sett["input_dir_mappings"] + "sector_mapping_sp1500.csv"
+            )
+            .iloc[:, 1:3]
+            .rename(columns={"SPY.1": "ticker", "0": "sector"})
+            .set_index("ticker")
+        )
+        (
+            self.clustered_dfs_train_sets,
+            self.clustered_dfs_test_sets,
+            self.forecasted_dates,
+        ) = self.rolling_sector_clustering()
+
+    def rolling_sector_clustering(self):
+        (
+            train_data_sets,
+            test_data_sets,
+            forecasted_dates,
+        ) = self.data_obj.rolling_train_test_splits
+
+        clustered_dfs_train_sets = []
+        clustered_dfs_test_sets = []
+
+        sectors = self.sector_mapping.sector.unique()
+
+        for i, (train_data_set, test_data_set) in enumerate(
+            zip(train_data_sets, test_data_sets)
+        ):
+            clustered_dfs_train = {}
+            clustered_dfs_test = {}
+            train_data_set = pd.merge(
+                train_data_set,
+                self.sector_mapping,
+                left_index=True,
+                right_index=True,
+                how="inner",
+            )
+            test_data_set = pd.merge(
+                test_data_set,
+                self.sector_mapping,
+                left_index=True,
+                right_index=True,
+                how="inner",
+            )
+            for sector in np.unique(sectors):
+                clustered_dfs_train[sector] = train_data_set.loc[
+                    train_data_set.sector == sector
+                ].drop(columns="sector")
+                clustered_dfs_test[sector] = test_data_set.loc[
+                    test_data_set.sector == sector
+                ].drop(columns="sector")
+            clustered_dfs_train_sets.append(clustered_dfs_train)
+            clustered_dfs_test_sets.append(clustered_dfs_test)
+
+        return clustered_dfs_train_sets, clustered_dfs_test_sets, forecasted_dates
 
 
 # first setup of autoencoder, specifics are not correct have to look into how to do it correctly

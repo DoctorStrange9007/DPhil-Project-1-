@@ -212,19 +212,23 @@ def test(data, result):
     - Uses 0.00005 as the threshold for positive/negative prediction
     """
     all_forecasts = []
-    if data.transpose().shape[1] == 1:
-        forecasts = result.forecast(
-            steps=data.shape[1]
-        )  # not entirely correct, but wont use this if fitted on all data as clusters of 1 dont make sense
-        sgn_forecasts = np.where(
-            forecasts > 0.00005, 1, -1
-        )  # can change delta (e.g. betsize)
-        all_forecasts.append(sgn_forecasts)
+    adj_test = data.transpose()
+    if adj_test.shape[1] == 1:
+        for step in range(data.shape[1]):
+            intercept = result.params[0]
+            coefs = result.params[1:]
+            num_lags = len(coefs)
+            forecast = intercept + np.dot(
+                coefs, adj_test.values[step : step + num_lags]
+            )
+            sgn_forecast = np.where(
+                forecast > 0.00005, 1, -1
+            )  # can change delta (e.g. betsize)
+            all_forecasts.append(*sgn_forecast)
     else:
         for step in range(data.shape[1]):
-            adj_test = data.transpose()
             forecast = result.forecast(
-                adj_test.values[step : step + 1], steps=1
+                adj_test.values[step : step + result.k_ar], steps=1
             )  # step + 1 := step + p
             sgn_forecast = np.where(
                 forecast > 0.00005, 1, -1
